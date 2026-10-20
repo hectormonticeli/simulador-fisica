@@ -7,11 +7,11 @@ export default {
   categoria: "Mecânica",
   series: ["Altura y (m)"],
   parametros: [
-    { nome: "v0", rotulo: "Velocidade inicial (m/s)", min: 1, max: 50, valor: 25, passo: 1 },
-    { nome: "angulo", rotulo: "Ângulo (°)", min: 5, max: 85, valor: 45, passo: 1 },
-    { nome: "h0", rotulo: "Altura inicial (m)", min: 0, max: 30, valor: 0, passo: 1 },
-    { nome: "g", rotulo: "Gravidade (m/s²)", min: 1, max: 25, valor: 9.8, passo: 0.1 },
-    { nome: "k", rotulo: "Arrasto (kg/s)", min: 0, max: 1, valor: 0, passo: 0.01 },
+    { nome: "v0", rotulo: "Velocidade inicial (m/s)", min: 1, max: 100, valor: 25, passo: 1, limite: [0.1, 500] },
+    { nome: "angulo", rotulo: "Ângulo (°)", min: 0, max: 90, valor: 45, passo: 1 },
+    { nome: "h0", rotulo: "Altura inicial (m)", min: 0, max: 100, valor: 0, passo: 1, limite: [0, 1000] },
+    { nome: "g", rotulo: "Gravidade (m/s²)", min: 1, max: 30, valor: 9.8, passo: 0.1, limite: [0.1, 100] },
+    { nome: "k", rotulo: "Arrasto (kg/s)", min: 0, max: 2, valor: 0, passo: 0.01, limite: [0, 10] },
   ],
 
   reset(p) {
@@ -40,7 +40,7 @@ export default {
     const s = this.escala, X = x => M.e + x * s, Y = y => h - M.b - y * s;
     ctx.clearRect(0, 0, w, h);
 
-    const dg = 10 ** Math.floor(Math.log10(Math.max(this.R0, 1) / 4));
+    const dg = 10 ** Math.floor(Math.log10(Math.max(this.R0, this.H0, 1) / 4));
     desenharGrade(ctx, w, h, X(0), Y(0), dg * s);
     ctx.fillStyle = COR.texto; ctx.font = "12px system-ui";
     ctx.fillText(`grade: ${dg} m`, X(0) + 6, Y(0) + 16);

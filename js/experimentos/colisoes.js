@@ -1,4 +1,4 @@
-import { Corpo, coulomb, passoMundo, colidir, K_COULOMB } from "../fisica/nucleo.js";
+import { Corpo, coulomb, passoMundo, colidir, aceleracao, K_COULOMB } from "../fisica/nucleo.js";
 import { COR, MARGEM, desenharGrade } from "../core/desenho.js";
 
 const MICRO = 1e-6, DURACAO = 20;   // cargas em µC; a simulação termina após 20 s
@@ -8,25 +8,31 @@ export default {
   titulo: "Colisões entre dois corpos",
   categoria: "Mecânica",
   series: ["Energia cinética (J)", "Energia total Ec + U (J)"],
+  // min/max/passo = slider; limite = faixa aceita ao digitar
   parametros: [
-    { nome: "m1", rotulo: "Massa de A (kg)", min: 0.5, max: 10, valor: 2, passo: 0.5 },
-    { nome: "m2", rotulo: "Massa de B (kg)", min: 0.5, max: 10, valor: 1, passo: 0.5 },
-    { nome: "v1", rotulo: "Velocidade de A (m/s)", min: 0, max: 10, valor: 5, passo: 0.5 },
-    { nome: "v2", rotulo: "Velocidade de B (m/s, + para a direita)", min: -10, max: 10, valor: 0, passo: 0.5 },
-    { nome: "b", rotulo: "Parâmetro de impacto (m)", min: -2, max: 2, valor: 0.3, passo: 0.1 },
+    { nome: "m1", rotulo: "Massa de A (kg)", min: 0.1, max: 50, valor: 2, passo: 0.1, limite: [0.01, 1000] },
+    { nome: "r1", rotulo: "Raio de A (m)", min: 0.1, max: 3, valor: 0.35, passo: 0.05, limite: [0.05, 5] },
+    { nome: "q1", rotulo: "Carga de A (µC)", min: -100, max: 100, valor: 0, passo: 1, limite: [-500, 500] },
+    { nome: "v1", rotulo: "Velocidade de A (m/s)", min: -50, max: 50, valor: 5, passo: 0.5, limite: [-300, 300] },
+    { nome: "m2", rotulo: "Massa de B (kg)", min: 0.1, max: 50, valor: 1, passo: 0.1, limite: [0.01, 1000] },
+    { nome: "r2", rotulo: "Raio de B (m)", min: 0.1, max: 3, valor: 0.25, passo: 0.05, limite: [0.05, 5] },
+    { nome: "q2", rotulo: "Carga de B (µC)", min: -100, max: 100, valor: 0, passo: 1, limite: [-500, 500] },
+    { nome: "v2", rotulo: "Velocidade de B (m/s, + p/ direita)", min: -50, max: 50, valor: 0, passo: 0.5, limite: [-300, 300] },
+    { nome: "b", rotulo: "Parâmetro de impacto (m)", min: -5, max: 5, valor: 0.3, passo: 0.05, limite: [-10, 10] },
     { nome: "e", rotulo: "Coeficiente de restituição", min: 0, max: 1, valor: 1, passo: 0.05 },
-    { nome: "q1", rotulo: "Carga de A (µC)", min: -50, max: 50, valor: 0, passo: 1 },
-    { nome: "q2", rotulo: "Carga de B (µC)", min: -50, max: 50, valor: 0, passo: 1 },
   ],
 
   reset(p) {
-    const raio = m => 0.25 * Math.sqrt(m);
     this.corpos = [
-      new Corpo({ x: -8, y: 0, vx: p.v1, m: p.m1, q: p.q1 * MICRO, r: raio(p.m1) }),
-      new Corpo({ x: 8, y: p.b, vx: p.v2, m: p.m2, q: p.q2 * MICRO, r: raio(p.m2) }),
+      new Corpo({ x: -10, y: 0, vx: p.v1, m: p.m1, q: p.q1 * MICRO, r: p.r1 }),
+      new Corpo({ x: 10, y: p.b, vx: p.v2, m: p.m2, q: p.q2 * MICRO, r: p.r2 }),
     ];
     this.forcas = [coulomb(this.corpos)];
-    this.e = p.e; this.t = 0; this.fim = false; this.escala = null; this.trilhas = [[], []];
+    this.e = p.e; this.b = p.b; this.rs = p.r1 + p.r2;
+    this.t = 0; this.fim = false; this.escala = null; this.trilhas = [[], []];
+    // região mostrada: cresce se os corpos forem grandes ou o parâmetro de impacto for grande
+    const rmax = Math.max(p.r1, p.r2);
+    this.vista = { cy: p.b / 2, meiaL: Math.max(12, 11 + rmax), meiaA: Math.max(7, Math.abs(p.b) / 2 + rmax + 1) };
     this.p0 = this.momento(); this.E0 = this.energias().E;
   },
 
@@ -36,27 +42,40 @@ export default {
     return Math.hypot(px, py);
   },
 
-  // Ec = energia cinética total; E = Ec + energia potencial elétrica (conserva-se, exceto na perda do choque)
+  // Ec = energia cinética total; E = Ec + energia potencial elétrica
   energias() {
     const [a, b] = this.corpos;
     const Ec = this.corpos.reduce((s, c) => s + 0.5 * c.m * (c.vx ** 2 + c.vy ** 2), 0);
-    return { Ec, E: Ec + K_COULOMB * a.q * b.q / Math.hypot(b.x - a.x, b.y - a.y) };
+    return { Ec, E: Ec + K_COULOMB * a.q * b.q / Math.max(Math.hypot(b.x - a.x, b.y - a.y), this.rs) };
+  },
+
+  // Com velocidades e cargas grandes, um passo único poderia "atravessar" o outro corpo.
+  // Dividimos o passo em n partes: o deslocamento por parte fica pequeno perto do raio do menor corpo.
+  subpassos(dt) {
+    const rmin = Math.min(...this.corpos.map(c => c.r));
+    const vmax = Math.max(...this.corpos.map(c => Math.hypot(c.vx, c.vy)));
+    const amax = Math.max(...this.corpos.map(c => Math.hypot(...aceleracao(c, this.forcas))));
+    const n = Math.ceil(Math.max(vmax * dt / (0.05 * rmin), dt * Math.sqrt(amax / (0.02 * rmin))));
+    return Math.min(2000, Math.max(1, n));
   },
 
   step(dt) {
     if (this.fim) return;
-    passoMundo(this.corpos, this.forcas, dt);
-    colidir(this.corpos[0], this.corpos[1], this.e);
+    const n = this.subpassos(dt);
+    for (let i = 0; i < n; i++) {
+      passoMundo(this.corpos, this.forcas, dt / n);
+      colidir(this.corpos[0], this.corpos[1], this.e);
+    }
     this.t += dt;
     this.trilhas.forEach((tr, i) => tr.push([this.corpos[i].x, this.corpos[i].y]));
     if (this.t >= DURACAO) this.fim = true;
   },
 
   draw(ctx, w, h) {
-    const M = MARGEM, aw = w - M.e - M.d, ah = h - M.t - M.b;
-    this.escala ??= Math.min(aw / 20, ah / 12);   // mostra uma região de 20 m x 12 m
+    const V = this.vista, M = MARGEM, aw = w - M.e - M.d, ah = h - M.t - M.b;
+    this.escala ??= Math.min(aw / (2 * V.meiaL), ah / (2 * V.meiaA));
     const s = this.escala, cx = M.e + aw / 2, cy = M.t + ah / 2;
-    const X = x => cx + x * s, Y = y => cy - y * s;
+    const X = x => cx + x * s, Y = y => cy - (y - V.cy) * s;
     ctx.clearRect(0, 0, w, h);
     desenharGrade(ctx, w, h, X(0), Y(0), s);
     ctx.fillStyle = COR.texto; ctx.font = "12px system-ui"; ctx.fillText("grade: 1 m", X(0) + 6, Y(0) + 16);
@@ -80,6 +99,7 @@ export default {
     const e = this.energias();
     return `t = ${this.t.toFixed(2)} s   |p| = ${this.momento().toFixed(3)} kg·m/s (inicial ${this.p0.toFixed(3)})\n`
       + `Ec = ${e.Ec.toFixed(3)} J   E total = ${e.E.toFixed(3)} J (inicial ${this.E0.toFixed(3)})\n`
-      + (this.fim ? "Fim da simulação." : this.t > 0 ? "Em andamento..." : "Ajuste os parâmetros e clique em Iniciar. A: azul, B: coral.");
+      + (this.fim ? "Fim da simulação." : this.t > 0 ? "Em andamento..."
+        : `Clique em Iniciar. Há contato se |b| < rA + rB = ${this.rs.toFixed(2)} m (|b| atual: ${Math.abs(this.b).toFixed(2)} m).`);
   },
 };
