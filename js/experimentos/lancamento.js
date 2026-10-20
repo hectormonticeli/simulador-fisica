@@ -1,4 +1,5 @@
 import { Corpo, gravidade, arrasto, passoVerlet } from "../fisica/nucleo.js";
+import { COR, MARGEM, desenharGrade } from "../core/desenho.js";
 
 export default {
   id: "lancamento",
@@ -18,9 +19,9 @@ export default {
     const vx = p.v0 * Math.cos(a), vy = p.v0 * Math.sin(a);
     this.c = new Corpo({ y: p.h0, vx, vy, m: 1 });
     this.forcas = [gravidade(p.g), arrasto(p.k)];
-    // valores teóricos sem arrasto, para comparar com a simulação
-    this.R0 = vx * (vy + Math.sqrt(vy * vy + 2 * p.g * p.h0)) / p.g;
-    this.H0 = p.h0 + vy * vy / (2 * p.g);
+    // referência teórica (sem arrasto): tempo de voo, alcance e altura máxima
+    const T0 = (vy + Math.sqrt(vy * vy + 2 * p.g * p.h0)) / p.g;
+    Object.assign(this, { vx0: vx, vy0: vy, h0: p.h0, g: p.g, T0, R0: vx * T0, H0: p.h0 + vy * vy / (2 * p.g) });
     this.t = 0; this.trilha = []; this.fim = false; this.alcance = 0; this.hmax = p.h0; this.escala = null;
   },
 
@@ -34,33 +35,39 @@ export default {
   },
 
   draw(ctx, w, h) {
-    const m = 30;
-    this.escala ??= Math.min((w - 2 * m) / Math.max(this.R0, 1), (h - 2 * m) / Math.max(this.H0, 1));
-    const s = this.escala, X = x => m + x * s, Y = y => h - m - y * s;
+    const M = MARGEM;
+    this.escala ??= Math.min((w - M.e - M.d) / Math.max(this.R0, 1), (h - M.t - M.b) / Math.max(this.H0, 1));
+    const s = this.escala, X = x => M.e + x * s, Y = y => h - M.b - y * s;
     ctx.clearRect(0, 0, w, h);
 
-    // grade em metros
     const dg = 10 ** Math.floor(Math.log10(Math.max(this.R0, 1) / 4));
-    ctx.strokeStyle = "#dde4ea"; ctx.lineWidth = 1; ctx.beginPath();
-    for (let x = 0; X(x) < w; x += dg) { ctx.moveTo(X(x), 0); ctx.lineTo(X(x), h); }
-    for (let y = 0; Y(y) > 0; y += dg) { ctx.moveTo(0, Y(y)); ctx.lineTo(w, Y(y)); }
-    ctx.stroke();
-    ctx.fillStyle = "#14213d"; ctx.fillText(`grade: ${dg} m`, 8, 16);
+    desenharGrade(ctx, w, h, X(0), Y(0), dg * s);
+    ctx.fillStyle = COR.texto; ctx.font = "12px system-ui";
+    ctx.fillText(`grade: ${dg} m`, X(0) + 6, Y(0) + 16);
 
-    // solo, trajetória e corpo
-    ctx.strokeStyle = "#14213d"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(w, Y(0)); ctx.stroke();
-    ctx.strokeStyle = "#1f5fbf"; ctx.beginPath();
+    // trajetória ideal (sem arrasto): serve de prévia enquanto os parâmetros são ajustados
+    ctx.setLineDash([6, 6]); ctx.lineWidth = 1.5; ctx.strokeStyle = COR.ideal; ctx.beginPath();
+    for (let i = 0; i <= 60; i++) {
+      const t = this.T0 * i / 60;
+      const x = X(this.vx0 * t), y = Y(this.h0 + this.vy0 * t - 0.5 * this.g * t * t);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+
+    // trajetória simulada e corpo
+    ctx.lineWidth = 2; ctx.strokeStyle = COR.azul; ctx.beginPath();
     this.trilha.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
     ctx.stroke();
-    ctx.fillStyle = "#c8372d"; ctx.beginPath(); ctx.arc(X(this.c.x), Y(this.c.y), 6, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = COR.coral; ctx.beginPath(); ctx.arc(X(this.c.x), Y(this.c.y), 6, 0, 2 * Math.PI); ctx.fill();
   },
 
   grandezas() { return { t: this.t, valores: [this.c.y] }; },
 
   info() {
-    let s = `t = ${this.t.toFixed(2)} s\nx = ${this.c.x.toFixed(2)} m\ny = ${this.c.y.toFixed(2)} m\n`;
+    let s = `t = ${this.t.toFixed(2)} s   x = ${this.c.x.toFixed(2)} m   y = ${this.c.y.toFixed(2)} m\n`;
     s += `altura máx. = ${this.hmax.toFixed(2)} m  (teórica sem arrasto: ${this.H0.toFixed(2)})\n`;
-    s += this.fim ? `alcance = ${this.alcance.toFixed(2)} m  (teórico sem arrasto: ${this.R0.toFixed(2)})` : "em voo...";
+    s += this.fim ? `alcance = ${this.alcance.toFixed(2)} m  (teórico sem arrasto: ${this.R0.toFixed(2)})`
+      : this.t > 0 ? "em voo..." : "Ajuste os parâmetros e clique em Iniciar. A linha tracejada é a trajetória sem arrasto.";
     return s;
   },
 };

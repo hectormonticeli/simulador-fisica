@@ -4,7 +4,7 @@ import { criarSliders } from "./core/controles.js";
 
 const $ = id => document.getElementById(id);
 const tela = $("tela"), ctx = tela.getContext("2d");
-let exp = null, loop = null, valores = null, grafico = null, n = 0;
+let exp = null, loop = null, valores = null, grafico = null, n = 0, W = 0, H = 0;
 
 // Tela inicial: um botão por experimento, agrupado por categoria
 for (const cat of new Set(experimentos.map(e => e.categoria))) {
@@ -18,35 +18,52 @@ for (const cat of new Set(experimentos.map(e => e.categoria))) {
   $("menu").append(secao);
 }
 
+// O canvas ocupa a área toda: ajusta o tamanho (com nitidez em telas de alta densidade)
+function ajustar() {
+  const d = devicePixelRatio || 1;
+  W = tela.clientWidth; H = tela.clientHeight;
+  tela.width = W * d; tela.height = H * d;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  if (exp) exp.escala = null;   // força recalcular a escala do experimento
+}
+new ResizeObserver(ajustar).observe(tela);
+
 function abrir(e) {
   exp = e;
   $("menu").hidden = true; $("sim").hidden = false; $("voltar").hidden = false;
   $("titulo").textContent = e.titulo;
-  valores = criarSliders($("params"), e.parametros, v => { valores = v; reiniciar(); });
+  ajustar();
 
+  // mexer em um slider volta o experimento ao estado inicial, parado
+  valores = criarSliders($("params"), e.parametros, v => { valores = v; preparar(); });
+
+  Chart.defaults.color = "#aab2c0"; Chart.defaults.borderColor = "#2c3340";
   grafico?.destroy();
   grafico = new Chart($("grafico"), {
     type: "line",
-    data: { datasets: e.series.map(nome => ({ label: nome, data: [], pointRadius: 0, borderWidth: 1.5 })) },
+    data: { datasets: e.series.map(nome => ({ label: nome, data: [], pointRadius: 0, borderWidth: 1.5, borderColor: "#7fb2e5" })) },
     options: { animation: false, parsing: false, responsive: true, maintainAspectRatio: false,
                scales: { x: { type: "linear", title: { display: true, text: "t (s)" } } } },
   });
-  reiniciar();
 
   loop?.parar();
   loop = new Loop(dt => { exp.step(dt); registrar(); }, () => {
-    exp.draw(ctx, tela.width, tela.height);
+    exp.draw(ctx, W, H);
     $("info").textContent = exp.info();
   });
   loop.vel = +$("vel").value;
+  preparar();
   loop.iniciar();
 }
 
-function reiniciar() {
+// Estado inicial: experimento posicionado, loop parado, esperando o botão "Iniciar"
+function preparar() {
   exp.reset(valores);
   grafico.data.datasets.forEach(d => { d.data = []; });
   grafico.update("none");
   n = 0;
+  loop.rodando = false;
+  $("play").textContent = "Iniciar";
 }
 
 // o gráfico é atualizado ~15 vezes por segundo (a cada 8 passos de 1/120 s)
@@ -61,7 +78,7 @@ $("play").onclick = () => {
   loop.rodando = !loop.rodando;
   $("play").textContent = loop.rodando ? "Pausar" : "Continuar";
 };
-$("reset").onclick = reiniciar;
+$("reset").onclick = preparar;
 $("vel").oninput = e => { loop.vel = +e.target.value; };
 $("voltar").onclick = () => {
   loop.parar();
