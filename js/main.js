@@ -2,6 +2,8 @@ import { experimentos } from "./registro.js";
 import { Loop } from "./core/loop.js";
 import { criarSliders } from "./core/controles.js";
 
+// cores suaves das séries do gráfico
+const PALETA = ["#7fb2e5", "#e8a87c", "#9fd3a8", "#c3a6e8"];
 const $ = id => document.getElementById(id);
 const tela = $("tela"), ctx = tela.getContext("2d");
 let exp = null, loop = null, valores = null, grafico = null, n = 0, W = 0, H = 0;
@@ -41,7 +43,7 @@ function abrir(e) {
   grafico?.destroy();
   grafico = new Chart($("grafico"), {
     type: "line",
-    data: { datasets: e.series.map(nome => ({ label: nome, data: [], pointRadius: 0, borderWidth: 1.5, borderColor: "#7fb2e5" })) },
+    data: { datasets: e.series.map((nome, i) => ({ label: nome, data: [], pointRadius: 0, borderWidth: 1.5, borderColor: PALETA[i % PALETA.length] })) },
     options: { animation: false, parsing: false, responsive: true, maintainAspectRatio: false,
                scales: { x: { type: "linear", title: { display: true, text: "t (s)" } } } },
   });
