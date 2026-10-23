@@ -14,3 +14,12 @@ export function desenharGrade(ctx, w, h, X0, Y0, px) {
   ctx.moveTo(X0, 0); ctx.lineTo(X0, h); ctx.moveTo(0, Y0); ctx.lineTo(w, Y0);
   ctx.stroke();
 }
+
+// Acrescenta um ponto à trilha só se ele se afastou o bastante do último (evita milhares de pontos
+// redundantes) e guarda no máximo "max" pontos recentes: simulações longas não pesam.
+export function acrescentarTrilha(tr, x, y, minDist, max = 8000) {
+  const u = tr[tr.length - 1];
+  if (u && Math.hypot(x - u[0], y - u[1]) < minDist) return;
+  tr.push([x, y]);
+  if (tr.length > 2 * max) tr.splice(0, tr.length - max);
+}

@@ -10,7 +10,9 @@ export class Loop {
     if (this.ultimo !== null && this.rodando) {
       // limita o tempo acumulado para não "congelar" ao trocar de aba
       this.acc += Math.min((t - this.ultimo) / 1000, 0.1) * this.vel;
-      while (this.acc >= this.dt) { this.passo(this.dt); this.acc -= this.dt; }
+      let n = 0;
+      while (this.acc >= this.dt && n++ < 600) { this.passo(this.dt); this.acc -= this.dt; }
+      if (this.acc >= this.dt) this.acc = 0;   // não deu tempo de acompanhar: descarta o atraso para a tela não travar
     }
     this.ultimo = t;
     this.desenhar();

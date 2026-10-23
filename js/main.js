@@ -53,7 +53,7 @@ function abrir(e) {
     exp.draw(ctx, W, H);
     $("info").textContent = exp.info();
   });
-  loop.vel = +$("vel").value;
+  definirVel();
   preparar();
   loop.iniciar();
 }
@@ -68,9 +68,10 @@ function preparar() {
   $("play").textContent = "Iniciar";
 }
 
-// o gráfico é atualizado ~15 vezes por segundo (a cada 8 passos de 1/120 s)
+// O gráfico recebe um ponto a cada 8 passos (15 por segundo simulado) e, em simulações longas,
+// menos pontos, para ficar com no máximo ~1500 por série.
 function registrar() {
-  if (++n % 8) return;
+  if (++n % Math.max(8, Math.ceil((exp.duracao ?? 0) * 120 / 1500))) return;
   const { t, valores: v } = exp.grandezas();
   grafico.data.datasets.forEach((d, i) => d.data.push({ x: t, y: v[i] }));
   grafico.update("none");
@@ -81,7 +82,12 @@ $("play").onclick = () => {
   $("play").textContent = loop.rodando ? "Pausar" : "Continuar";
 };
 $("reset").onclick = preparar;
-$("vel").oninput = e => { loop.vel = +e.target.value; };
+// velocidade da simulação em escala logarítmica: de 0,1x a 20x
+function definirVel() {
+  loop.vel = 10 ** +$("vel").value;
+  $("velv").textContent = "×" + loop.vel.toLocaleString("pt-BR", { maximumFractionDigits: loop.vel < 10 ? 1 : 0 });
+}
+$("vel").oninput = definirVel;
 $("voltar").onclick = () => {
   loop.parar();
   $("sim").hidden = true; $("menu").hidden = false; $("voltar").hidden = true;

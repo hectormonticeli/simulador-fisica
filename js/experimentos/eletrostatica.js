@@ -1,7 +1,7 @@
 import { Corpo, coulomb, passoVerlet, aceleracao, K_COULOMB as K } from "../fisica/nucleo.js";
-import { COR, MARGEM, desenharGrade } from "../core/desenho.js";
+import { COR, MARGEM, desenharGrade, acrescentarTrilha } from "../core/desenho.js";
 
-const MICRO = 1e-6, DURACAO = 30, RAIO_CARGA = 0.2;   // cargas em µC; limite de tempo; distância de "choque" com uma carga
+const MICRO = 1e-6, RAIO_CARGA = 0.2;   // cargas em µC; distância de "choque" com uma carga
 const VERDE = "#9fd3a8";
 const f2 = x => x.toFixed(2);
 const fmt = x => (x !== 0 && (Math.abs(x) >= 1e4 || Math.abs(x) < 1e-2) ? x.toExponential(2) : x.toFixed(2));
@@ -21,6 +21,7 @@ export default {
     { nome: "y0", rotulo: "Posição inicial y (m)", min: -10, max: 10, valor: 1, passo: 0.1, limite: [-40, 40] },
     { nome: "vx0", rotulo: "Velocidade inicial vx (m/s)", min: -20, max: 20, valor: 0, passo: 0.5, limite: [-200, 200] },
     { nome: "vy0", rotulo: "Velocidade inicial vy (m/s)", min: -20, max: 20, valor: 0, passo: 0.5, limite: [-200, 200] },
+    { nome: "duracao", rotulo: "Duração da simulação (s)", min: 5, max: 300, valor: 30, passo: 5, limite: [1, 3600] },
   ],
 
   reset(p) {
@@ -28,9 +29,10 @@ export default {
     this.fixas = [new Corpo({ x: -p.d / 2, q: p.q1 * MICRO }), new Corpo({ x: p.d / 2, q: p.q2 * MICRO })];
     this.c = new Corpo({ x: p.x0, y: p.y0, vx: p.vx0, vy: p.vy0, m: p.m0, q: p.q0 * MICRO });
     this.forcas = [coulomb(this.fixas)];
-    this.t = 0; this.fim = false; this.motivo = ""; this.trilha = [[p.x0, p.y0]];
+    this.duracao = p.duracao; this.t = 0; this.fim = false; this.motivo = ""; this.trilha = [[p.x0, p.y0]];
     this.chaveCampo = `${p.q1},${p.q2},${p.d}`;
     this.vista = { meiaL: Math.max(10, p.d / 2 + 4, Math.abs(p.x0) + 2), meiaA: Math.max(6, Math.abs(p.y0) + 2) };
+    this.minDist = this.vista.meiaL / 1000;   // espaçamento mínimo entre pontos da trilha
   },
 
   campo(x, y) {   // campo elétrico (N/C) criado pelas cargas fixas
@@ -64,9 +66,9 @@ export default {
       if (this.fixas.some(f => f.q && Math.hypot(f.x - this.c.x, f.y - this.c.y) < RAIO_CARGA)) { this.fim = true; this.motivo = "atingiu uma carga"; break; }
     }
     this.t += dt;
-    this.trilha.push([this.c.x, this.c.y]);
+    acrescentarTrilha(this.trilha, this.c.x, this.c.y, this.minDist);
     if (Math.hypot(this.c.x, this.c.y) > 500) { this.fim = true; this.motivo = "saiu da região"; }
-    if (this.t >= DURACAO) { this.fim = true; this.motivo = "tempo esgotado"; }
+    if (this.t >= this.duracao - dt / 2) { this.fim = true; this.motivo = "tempo esgotado"; }
   },
 
   // ---- camada estática (grade, equipotenciais, linhas de campo): desenhada uma vez e reaproveitada ----
@@ -175,7 +177,7 @@ export default {
 
   info() {
     const c = this.c, [ex, ey] = this.campo(c.x, c.y), E = Math.hypot(ex, ey), e = this.energias();
-    return `t = ${f2(this.t)} s   (x, y) = (${f2(c.x)}; ${f2(c.y)}) m   |v| = ${f2(Math.hypot(c.vx, c.vy))} m/s${this.fim ? `   [${this.motivo}]` : ""}\n`
+    return `t = ${f2(this.t)} / ${this.duracao} s   (x, y) = (${f2(c.x)}; ${f2(c.y)}) m   |v| = ${f2(Math.hypot(c.vx, c.vy))} m/s${this.fim ? `   [${this.motivo}]` : ""}\n`
       + `no ponto: |E| = ${fmt(E)} N/C   V = ${fmt(this.potencial(c.x, c.y))} V   |F| = ${fmt(Math.abs(c.q) * E)} N\n`
       + `Ec = ${fmt(e.Ec)} J   U = ${fmt(e.U)} J   Emec = ${fmt(e.E)} J`;
   },

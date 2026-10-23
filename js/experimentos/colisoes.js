@@ -1,7 +1,7 @@
 import { Corpo, coulomb, passoMundo, colidir, aceleracao, K_COULOMB } from "../fisica/nucleo.js";
-import { COR, MARGEM, desenharGrade } from "../core/desenho.js";
+import { COR, MARGEM, desenharGrade, acrescentarTrilha } from "../core/desenho.js";
 
-const MICRO = 1e-6, DURACAO = 20;   // cargas em µC; a simulação termina após 20 s
+const MICRO = 1e-6;   // cargas em µC
 
 export default {
   id: "colisoes",
@@ -20,6 +20,7 @@ export default {
     { nome: "v2", rotulo: "Velocidade de B (m/s, + p/ direita)", min: -50, max: 50, valor: 0, passo: 0.5, limite: [-300, 300] },
     { nome: "b", rotulo: "Parâmetro de impacto (m)", min: -5, max: 5, valor: 0.3, passo: 0.05, limite: [-10, 10] },
     { nome: "e", rotulo: "Coeficiente de restituição", min: 0, max: 1, valor: 1, passo: 0.05 },
+    { nome: "duracao", rotulo: "Duração da simulação (s)", min: 5, max: 300, valor: 20, passo: 5, limite: [1, 3600] },
   ],
 
   reset(p) {
@@ -33,6 +34,7 @@ export default {
     // região mostrada: cresce se os corpos forem grandes ou o parâmetro de impacto for grande
     const rmax = Math.max(p.r1, p.r2);
     this.vista = { cy: p.b / 2, meiaL: Math.max(12, 11 + rmax), meiaA: Math.max(7, Math.abs(p.b) / 2 + rmax + 1) };
+    this.duracao = p.duracao; this.minDist = this.vista.meiaL / 1000;   // minDist: espaçamento mínimo entre pontos da trilha
     this.p0 = this.momento(); this.E0 = this.energias().E;
   },
 
@@ -67,8 +69,8 @@ export default {
       colidir(this.corpos[0], this.corpos[1], this.e);
     }
     this.t += dt;
-    this.trilhas.forEach((tr, i) => tr.push([this.corpos[i].x, this.corpos[i].y]));
-    if (this.t >= DURACAO) this.fim = true;
+    this.trilhas.forEach((tr, i) => acrescentarTrilha(tr, this.corpos[i].x, this.corpos[i].y, this.minDist));
+    if (this.t >= this.duracao - dt / 2) this.fim = true;
   },
 
   draw(ctx, w, h) {
@@ -97,7 +99,7 @@ export default {
 
   info() {
     const e = this.energias();
-    return `t = ${this.t.toFixed(2)} s   |p| = ${this.momento().toFixed(3)} kg·m/s (inicial ${this.p0.toFixed(3)})\n`
+    return `t = ${this.t.toFixed(2)} / ${this.duracao} s   |p| = ${this.momento().toFixed(3)} kg·m/s (inicial ${this.p0.toFixed(3)})\n`
       + `Ec = ${e.Ec.toFixed(3)} J   E total = ${e.E.toFixed(3)} J (inicial ${this.E0.toFixed(3)})\n`
       + (this.fim ? "Fim da simulação." : this.t > 0 ? "Em andamento..."
         : `Clique em Iniciar. Há contato se |b| < rA + rB = ${this.rs.toFixed(2)} m (|b| atual: ${Math.abs(this.b).toFixed(2)} m).`);
