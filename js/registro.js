@@ -2,5 +2,7 @@
 import lancamento from "./experimentos/lancamento.js";
 import colisoes from "./experimentos/colisoes.js";
 import eletrostatica from "./experimentos/eletrostatica.js";
+import refracao from "./experimentos/refracao.js";
+import lentes from "./experimentos/lentes.js";
 
-export const experimentos = [lancamento, colisoes, eletrostatica];
+export const experimentos = [lancamento, colisoes, eletrostatica, refracao, lentes];

@@ -40,8 +40,10 @@ function abrir(e) {
   valores = criarSliders($("params"), e.parametros, v => { valores = v; preparar(); });
 
   Chart.defaults.color = "#aab2c0"; Chart.defaults.borderColor = "#2c3340";
-  grafico?.destroy();
-  grafico = new Chart($("grafico"), {
+  grafico?.destroy(); grafico = null;
+  const temGrafico = (e.series ?? []).length > 0;   // experimentos sem "series" (óptica) escondem o gráfico
+  $("grafico").parentElement.hidden = !temGrafico;
+  if (temGrafico) grafico = new Chart($("grafico"), {
     type: "line",
     data: { datasets: e.series.map((nome, i) => ({ label: nome, data: [], pointRadius: 0, borderWidth: 1.5, borderColor: PALETA[i % PALETA.length] })) },
     options: { animation: false, parsing: false, responsive: true, maintainAspectRatio: false,
@@ -61,8 +63,7 @@ function abrir(e) {
 // Estado inicial: experimento posicionado, loop parado, esperando o botão "Iniciar"
 function preparar() {
   exp.reset(valores);
-  grafico.data.datasets.forEach(d => { d.data = []; });
-  grafico.update("none");
+  if (grafico) { grafico.data.datasets.forEach(d => { d.data = []; }); grafico.update("none"); }
   n = 0;
   loop.rodando = false;
   $("play").textContent = "Iniciar";
@@ -71,6 +72,7 @@ function preparar() {
 // O gráfico recebe um ponto a cada 8 passos (15 por segundo simulado) e, em simulações longas,
 // menos pontos, para ficar com no máximo ~1500 por série.
 function registrar() {
+  if (!grafico) return;
   if (++n % Math.max(8, Math.ceil((exp.duracao ?? 0) * 120 / 1500))) return;
   const { t, valores: v } = exp.grandezas();
   grafico.data.datasets.forEach((d, i) => d.data.push({ x: t, y: v[i] }));
