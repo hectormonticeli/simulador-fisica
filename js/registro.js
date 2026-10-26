@@ -5,5 +5,6 @@ import eletrostatica from "./experimentos/eletrostatica.js";
 import refracao from "./experimentos/refracao.js";
 import lentes from "./experimentos/lentes.js";
 import young from "./experimentos/young.js";
+import gas from "./experimentos/gas.js";
 
-export const experimentos = [lancamento, colisoes, eletrostatica, refracao, lentes, young];
+export const experimentos = [lancamento, colisoes, eletrostatica, refracao, lentes, young, gas];
