@@ -2,7 +2,7 @@
 export const COR = { grade: "#262c37", eixo: "#4a5366", texto: "#aab2c0", azul: "#7fb2e5", coral: "#e8a87c", ideal: "#66748f" };
 
 // Margens da área útil: deixam espaço para o painel da direita e a barra do topo.
-export const MARGEM = { e: 70, d: 340, t: 80, b: 70 };
+export const MARGEM = { e: 70, d: 340, t: 80, b: 150 };
 
 // Grade e eixos cobrindo a tela toda, alinhados à origem (X0, Y0 em pixels). "px" = tamanho da célula.
 export function desenharGrade(ctx, w, h, X0, Y0, px) {
